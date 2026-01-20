@@ -1,5 +1,6 @@
 /.idea/
 /.vscode/
+/thirdparty/**
 
 ### C++ template
 # Prerequisites
