@@ -1,5 +1,5 @@
 #include <uWebSockets/src/App.h>
-#include <nlohmann/json.hpp>
+#include "data_templates/json_templates.hpp"
 #include <iostream>
 #include <sstream>
 #include <string_view>
@@ -7,41 +7,37 @@
 
 struct PerSocketData {
     int id;
-    std::string usrName;
 };
 
 std::unordered_set<uWS::WebSocket<false, true, PerSocketData>*> clients;
 int nextId = 1;
 
-
 int main() {
 
     using json = nlohmann::json;
 
-    uWS::App()
-        .ws<PerSocketData>("/*", {
+    uWS::App app;
+
+        app.ws<PerSocketData>("/*", {
             .open = [](auto *ws) {
                 ws->getUserData()->id = nextId++;
                 clients.insert(ws);
                 std::cout << "Client " << ws->getUserData()->id << " connected\n";
             },
-            .message = [](auto *ws, std::string_view msg, uWS::OpCode) {
+            .message = [](auto *ws, std::string_view msg, uWS::OpCode op) {
                 int& id = ws->getUserData()->id;
-                // std::cout << "Client " << id << ": " << msg << "\n";
-                // ws->send(msg, uWS::OpCode::TEXT);
-                
-                json obj;
-                obj["id"] = id;
-                obj["msg"] = msg;
 
-                std::vector<std::uint8_t> bin = json::to_cbor(obj);
-
+                auto logmsg = nlohmann::ordered_json::from_cbor(msg.begin(), msg.end());
+                std::cout << logmsg << "\n";
+                std::vector<std::uint8_t> bin = nlohmann::ordered_json::to_cbor(tmplts::json::make_character_attribs({0,1,2,3,4,5}));
 
                 for (auto* client : clients)
                 {
                     // if (client != ws)
                     {
-                        client->send({reinterpret_cast<char*>(bin.data())}, uWS::OpCode::BINARY);
+                        char* bytes = reinterpret_cast<char*>(bin.data());
+                        auto binobj = std::string_view(bytes, bin.size());
+                        client->send(binobj, uWS::OpCode::BINARY);
                     }
                 }
             },
